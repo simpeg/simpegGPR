@@ -1,2 +1,4 @@
-from GPRTime import *
+from GPRTimeSurvey import *
+from GPRTimeTEz import *
+from GPRTimeTMz import *
 

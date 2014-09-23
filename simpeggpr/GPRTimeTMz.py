@@ -3,8 +3,9 @@ from SimPEG.Utils import sdiag, mkvc, sdInv, speye
 import matplotlib.pyplot as plt
 from time import clock
 from scipy.constants import mu_0, epsilon_0
+from GPRTimeSurvey import SurveyGPRTime
 
-class GPRTx(Survey.BaseTx):
+class GPRTMzTx(Survey.BaseTx):
 
 
     def __init__(self, loc, time, rxList, txType='Mz', **kwargs):
@@ -47,30 +48,30 @@ class GPRTx(Survey.BaseTx):
 
     def getq(self, mesh):
 
-        if self.txType=='Mz':
+        if self.txType=='Jz':
 
             txind = Utils.closestPoints(mesh, self.loc, gridLoc='CC')
-            jm = np.zeros(mesh.nC)
-            jm[txind] = 1./mesh.vol[txind]
-            return np.r_[jm, jm]*0.5, np.zeros(mesh.nE)
+            je = np.zeros(mesh.nC)
+            je[txind] = 1./mesh.vol[txind]
+            return np.r_[je, je]*0.5, np.zeros(mesh.nE)
 
-        elif self.txType=='Jx':
+        elif self.txType=='Mx':
             txind = Utils.closestPoints(mesh, self.loc, gridLoc='Ex')
-            je = np.zeros(mesh.nE)
-            je[txind] = 1./mesh.edge[txind]
+            jm = np.zeros(mesh.nE)
+            jm[txind] = 1./mesh.edge[txind]
 
-            return np.zeros(2*mesh.nC), je
+            return np.zeros(2*mesh.nC), jm
 
-        elif self.txType=='Jy':
+        elif self.txType=='My':
             txind = Utils.closestPoints(mesh, self.loc, gridLoc='Ey')
-            je = np.zeros(mesh.nE)
-            je[txind] = 1./mesh.edge[txind]
-            return np.zeros(2*mesh.nC), je
+            jm = np.zeros(mesh.nE)
+            jm[txind] = 1./mesh.edge[txind]
+            return np.zeros(2*mesh.nC), jm
 
         else:
             Exception("Not implemented!!")
 
-class GPRRx(Survey.BaseRx):
+class GPRTMzRx(Survey.BaseRx):
 
     def __init__(self, locs, rxtype, **kwargs):
         self.locs = locs
@@ -83,44 +84,15 @@ class GPRRx(Survey.BaseRx):
 
     def getP(self, mesh):
         # TODO: need to be changed: do not generate every time
-        if self.rxtype == 'Ex':
+        if self.rxtype == 'Hx':
             P = mesh.getInterpolationMat(self.locs, 'Ex')
-        elif self.rxtype == 'Ey':
+        elif self.rxtype == 'Hy':
             P = mesh.getInterpolationMat(self.locs, 'Ey')
-        elif self.rxtype == 'Hz':
+        elif self.rxtype == 'Ez':
             P = mesh.getInterpolationMat(self.locs, 'CC')
         return P
 
-
-
-class SurveyGPRTime(Survey.BaseSurvey):
-    """
-        **SurveyAcousitc**
-
-        Geophysical Acoustic Wave data.
-
-    """
-
-    def __init__(self, txList,**kwargs):
-        self.txList = txList
-        Survey.BaseSurvey.__init__(self, **kwargs)
-
-    def projectFields(self, u):
-        data = {}
-
-        for i, tx in enumerate(self.txList):
-            for rx in tx.rxList:
-
-                Proj = rx.getP(self.prob.mesh)
-                if rx.rxtype.find('E') >= 0:
-                    flag = 'E'
-                elif rx.rxtype.find('H') >= 0:
-                    flag = 'H'
-                data[tx, rx] = (Proj*u[flag, tx])
-
-        return data
-
-class GPR2DTEzProblemPML(Problem.BaseProblem):
+class GPR2DTMzProblemPML(Problem.BaseProblem):
     """
 
     """
@@ -133,7 +105,6 @@ class GPR2DTEzProblemPML(Problem.BaseProblem):
 
     def __init__(self, mesh, **kwargs):
         Problem.BaseProblem.__init__(self, mesh)
-        self.mesh.setCellGradBC('dirichlet')
         Utils.setKwargs(self, **kwargs)
 
     def setPMLBC(self, npad, dt, sm=3., Rth=1e-8):
@@ -204,14 +175,14 @@ class GPR2DTEzProblemPML(Problem.BaseProblem):
 
     def fields(self, epsilon, mu, sig0):
 
-        Smu = sp.block_diag([sdiag(mu*self.sy0), sdiag(mu*self.sx0)])
-        SmuI = sp.block_diag([sdiag(1./(mu*self.sy0)), sdiag(1./(mu*self.sx0))])
-        Smuisig = sp.block_diag([sdiag(self.sigs*self.sigy*(1./epsilon)*self.sy0), sdiag(self.sigs*self.sigx*(1./epsilon)*self.sx0)])
-        Ssig = sp.block_diag([sdiag((self.sigy*mu/epsilon+self.sigs)*self.sy0), sdiag((self.sigx*mu/epsilon+self.sigs)*self.sx0)])
-        Mesepsisig = sdiag(mesh.aveE2CCV.T*np.r_[1./epsilon*sig0*self.sigy*self.sy0, 1./epsilon*sig0*self.sigx*self.sx0])
-        Messig = sdiag(mesh.aveE2CCV.T*np.r_[(sig0+self.sigy)*self.sy0, (sig0+self.sigx)*self.sx0])
-        Meseps = sdiag(mesh.aveE2CCV.T*np.r_[epsilon*self.sy0, epsilon*self.sx0])
-        MesepsI = sdInv(Meseps)
+        Seps = sp.block_diag([sdiag(epsilon*self.sy0), sdiag(epsilon*self.sx0)])
+        SepsI = sp.block_diag([sdiag(1./(epsilon*self.sy0)), sdiag(1./(epsilon*self.sx0))])
+        Sepsisig = sp.block_diag([sdiag(sig0*self.sigy*(1./epsilon)*self.sy0), sdiag(sig0*self.sigx*(1./epsilon)*self.sx0)])
+        Ssig = sp.block_diag([sdiag((self.sigy+sig0)*self.sy0), sdiag((self.sigx+sig0)*self.sx0)])
+        Mesmuisigs = sdiag(mesh.aveE2CCV.T*np.r_[self.sigs*self.sigy/epsilon*self.sy0, self.sigs*self.sigx/epsilon*self.sx0])
+        Messigs = sdiag(mesh.aveE2CCV.T*np.r_[(self.sigs+self.sigy*mu/epsilon)*self.sy0, (self.sigs+self.sigx*mu/epsilon)*self.sx0])
+        Mesmu = sdiag(mesh.aveE2CCV.T*np.r_[mu*self.sy0, mu*self.sx0])
+        MesmuI = sdInv(Mesmu)
         Icc = sp.hstack((speye(mesh.nC), speye(mesh.nC)))
         curl = mesh.edgeCurl
         curlvec = sp.block_diag((curl[:,:mesh.nEx], curl[:,mesh.nEx:]))
@@ -236,34 +207,40 @@ class GPR2DTEzProblemPML(Problem.BaseProblem):
             ntx = len(self.survey.txList)
             for itx, tx in enumerate(self.survey.txList):
                 print ("  Tx at (%7.2f, %7.2f): %4i/%4i")%(tx.loc[0], tx.loc[0], itx+1, ntx)
-                hd0 = np.zeros(2*mesh.nC)
-                hd1 = np.zeros(2*mesh.nC)
-                hId0 = np.zeros(2*mesh.nC)
-                hId1 = np.zeros(2*mesh.nC)
-                e0 = np.zeros(mesh.nE)
-                e1 = np.zeros(mesh.nE)
-                eI0 = np.zeros(mesh.nE)
-                eI1 = np.zeros(mesh.nE)
+                h0 = np.zeros(mesh.nE)
+                h1 = np.zeros(mesh.nE)
+                hI0 = np.zeros(mesh.nE)
+                hI1 = np.zeros(mesh.nE)
+
+                ed0 = np.zeros(2*mesh.nC)
+                ed1 = np.zeros(2*mesh.nC)
+                eId0 = np.zeros(2*mesh.nC)
+                eId1 = np.zeros(2*mesh.nC)
+
                 time = tx.time
                 dt = tx.dt
-                jm, je = tx.getq(self.mesh)
-                h = np.zeros((mesh.nC, time.size))
-                e = np.zeros((mesh.nE, time.size))
+                je, jm = tx.getq(self.mesh)
+                h = np.zeros((mesh.nE, time.size))
+                e = np.zeros((mesh.nC, time.size))
 
                 for i in range(time.size-1):
-                    eI0 = eI1.copy()
-                    eI1 = eI0 + dt*e0
-                    e1 = e0 + MesepsI*dt*(curl.T*(Icc*hd1)-Messig*e0-Mesepsisig*eI1-je*wave[i])
-                    e0 = e1.copy()
-                    e[:,i] = e1
-                    hId0 = hId1.copy()
-                    hId1 = hId0 + dt*hd0
-                    hd1 = hd0 - SmuI*dt*(curlvec*e0+Ssig*hd0+Smuisig*hId1+jm*wave[i]*0.5)
-                    hd0 = hd1.copy()
-                    h[:,i] = Icc*hd1
+
+                    eId0 = eId1.copy()
+                    eId1 = eId0 + dt*ed0
+
+                    ed1 = ed0 + SepsI*dt*(curlvec*(h1) - Ssig*ed0 - Sepsisig*eId1-je*wave[i])
+                    ed0 = ed1.copy()
+                    e[:,i] = Icc*ed1
+
+                    hI0 = hI1.copy()
+                    hI1 = hI0 + dt*h0
+                    h1 = h0 - MesmuI*dt*(curl.T*(Icc*ed0)+Messigs*h0+Mesmuisigs*hI1+jm*wave[i])
+                    h0 = h1.copy()
+                    h[:,i] = h1
 
                 self._Fields['E', tx]= e
                 self._Fields['H', tx]= h
+
             elapsed = clock()-start
             print (">>Elapsed time: %5.2e s")%(elapsed)
 
@@ -275,31 +252,35 @@ class GPR2DTEzProblemPML(Problem.BaseProblem):
             ntx = len(self.survey.txList)
             for itx, tx in enumerate(self.survey.txList):
                 print ("  Tx at (%7.2f, %7.2f): %4i/%4i")%(tx.loc[0], tx.loc[0], itx+1, ntx)
-                hd0 = np.zeros(2*mesh.nC)
-                hd1 = np.zeros(2*mesh.nC)
-                hId0 = np.zeros(2*mesh.nC)
-                hId1 = np.zeros(2*mesh.nC)
-                e0 = np.zeros(mesh.nE)
-                e1 = np.zeros(mesh.nE)
-                eI0 = np.zeros(mesh.nE)
-                eI1 = np.zeros(mesh.nE)
+                h0 = np.zeros(mesh.nE)
+                h1 = np.zeros(mesh.nE)
+                hI0 = np.zeros(mesh.nE)
+                hI1 = np.zeros(mesh.nE)
+
+                ed0 = np.zeros(2*mesh.nC)
+                ed1 = np.zeros(2*mesh.nC)
+                eId0 = np.zeros(2*mesh.nC)
+                eId1 = np.zeros(2*mesh.nC)
+
                 time = tx.time
                 dt = tx.dt
-                jm, je = tx.getq(self.mesh)
-                h = np.zeros((mesh.nC, time.size))
-                e = np.zeros((mesh.nE, time.size))
+                je, jm = tx.getq(self.mesh)
+                h = np.zeros((mesh.nE, time.size))
+                e = np.zeros((mesh.nC, time.size))
 
                 for i in range(time.size-1):
-                    eI0 = eI1.copy()
-                    eI1 = eI0 + dt*e0
-                    e1 = e0 + MesepsI*dt*(curl.T*(Icc*hd1)-Messig*e0-Mesepsisig*eI1-je*wave[i])
-                    e0 = e1.copy()
-                    e[:,i] = e1
-                    hId0 = hId1.copy()
-                    hId1 = hId0 + dt*hd0
-                    hd1 = hd0 - SmuI*dt*(curlvec*e0+Ssig*hd0+Smuisig*hId1+jm*wave[i]*0.5)
-                    hd0 = hd1.copy()
-                    h[:,i] = Icc*hd1
+                    eId0 = eId1.copy()
+                    eId1 = eId0 + dt*ed0
+
+                    ed1 = ed0 + SepsI*dt*(curlvec*(h1) - Ssig*ed0 - Sepsisig*eId1-je*wave[i])
+                    ed0 = ed1.copy()
+                    e[:,i] = Icc*ed1
+
+                    hI0 = hI1.copy()
+                    hI1 = hI0 + dt*h0
+                    h1 = h0 - MesmuI*dt*(curl.T*(Icc*ed0)+Messigs*h0+Mesmuisigs*hI1+jm*wave[i])
+                    h0 = h1.copy()
+                    h[:,i] = h1
 
                 for rx in tx.rxList:
                     Proj = rx.getP(self.mesh)
@@ -322,15 +303,15 @@ if __name__ == '__main__':
     fmain = 3e9
     time = np.arange(650)*dt
     options={'tlag':50*dt, 'fmain':fmain}
-    rx = GPRRx(np.r_[0, 0.], 'Ex')
-    tx = GPRTx(np.r_[0, 0.], time, [rx], txType='Mz', **options)
+    rx = GPRTMzRx(np.r_[0, 0.], 'Hx')
+    tx = GPRTMzTx(np.r_[0, 0.], time, [rx], txType='Jz', **options)
     survey = SurveyGPRTime([tx])
     wave = tx.RickerWavelet()
     cs =  1.0*1e-2
     hx = np.ones(200)*cs
     hy = np.ones(200)*cs
     mesh = Mesh.TensorMesh([hx, hy], 'CC')
-    prob = GPR2DTEzProblemPML(mesh)
+    prob = GPR2DTMzProblemPML(mesh)
     prob.pair(survey)
     epsilon = epsilon_0*np.ones(mesh.nC)*1.
     epsilon[mesh.gridCC[:,1]<0.5] = epsilon_0*2.
@@ -339,6 +320,7 @@ if __name__ == '__main__':
     sig0 = sighalf*np.ones(mesh.nC)
     prob.setPMLBC(30, dt)
     prob.stabilitycheck(epsilon, mu, sig0, time, fmain, sigs=0.)
+
     storefield = True
     if storefield == False:
         prob.storefield = False
@@ -350,7 +332,7 @@ if __name__ == '__main__':
         icount = 600
         extent = [mesh.vectorCCx.min(), mesh.vectorCCx.max(), mesh.vectorCCy.min(), mesh.vectorCCy.max()]
 
-        plt.imshow(np.flipud(Fields['H', tx][:,icount].reshape((mesh.nCx, mesh.nCy), order = 'F').T), cmap = 'RdBu', extent=extent)
+        plt.imshow(np.flipud(Fields['E', tx][:,icount].reshape((mesh.nCx, mesh.nCy), order = 'F').T), cmap = 'RdBu', extent=extent)
         plt.show()
 
         data = survey.projectFields(Fields)
