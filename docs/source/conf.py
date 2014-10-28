@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# simpegGPR documentation build configuration file, created by
-# sphinx-quickstart on Mon Sep 22 23:20:12 2014.
+# SimPEG documentation build configuration file, created by
+# sphinx-quickstart on Mon Sep 22 23:11:31 2014.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -19,7 +19,7 @@ import os
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('.'))
-
+sys.path.append('../')
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -51,7 +51,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'simpegGPR'
+project = u'SimPEG'
 copyright = u'2014, Seogi Kang'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -106,7 +106,13 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+try:
+    import sphinx_rtd_theme
+    html_theme = 'sphinx_rtd_theme'
+    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+    pass
+except Exception, e:
+    html_theme = 'default'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -184,7 +190,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'simpegGPRdoc'
+htmlhelp_basename = 'SimPEGdoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -204,7 +210,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'simpegGPR.tex', u'simpegGPR Documentation',
+  ('index.rst', 'SimPEG.tex', u'SimPEG Documentation',
    u'Seogi Kang', 'manual'),
 ]
 
@@ -234,7 +240,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'simpeggpr', u'simpegGPR Documentation',
+    ('index.rst', 'simpeg', u'SimPEG Documentation',
      [u'Seogi Kang'], 1)
 ]
 
@@ -248,8 +254,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'simpegGPR', u'simpegGPR Documentation',
-   u'Seogi Kang', 'simpegGPR', 'One line description of project.',
+  ('index.rst', 'SimPEG', u'SimPEG Documentation',
+   u'Seogi Kang', 'SimPEG', 'One line description of project.',
    'Miscellaneous'),
 ]
 
@@ -269,13 +275,13 @@ texinfo_documents = [
 # -- Options for Epub output ----------------------------------------------
 
 # Bibliographic Dublin Core info.
-epub_title = u'simpegGPR'
+epub_title = u'SimPEG'
 epub_author = u'Seogi Kang'
 epub_publisher = u'Seogi Kang'
 epub_copyright = u'2014, Seogi Kang'
 
 # The basename for the epub file. It defaults to the project name.
-#epub_basename = u'simpegGPR'
+#epub_basename = u'SimPEG'
 
 # The HTML theme for the epub output. Since the default themes are not optimized
 # for small screen space, using the same theme for HTML and epub output is

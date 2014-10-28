@@ -179,13 +179,13 @@ class GPR2DTEzProblemPML(Problem.BaseProblem):
         SmuI = sp.block_diag([sdiag(1./(mu*self.sy0)), sdiag(1./(mu*self.sx0))])
         Smuisig = sp.block_diag([sdiag(self.sigs*self.sigy*(1./epsilon)*self.sy0), sdiag(self.sigs*self.sigx*(1./epsilon)*self.sx0)])
         Ssig = sp.block_diag([sdiag((self.sigy*mu/epsilon+self.sigs)*self.sy0), sdiag((self.sigx*mu/epsilon+self.sigs)*self.sx0)])
-        Mesepsisig = sdiag(mesh.aveE2CCV.T*np.r_[1./epsilon*sig0*self.sigy*self.sy0, 1./epsilon*sig0*self.sigx*self.sx0])
-        Messig = sdiag(mesh.aveE2CCV.T*np.r_[(sig0+self.sigy)*self.sy0, (sig0+self.sigx)*self.sx0])
-        Meseps = sdiag(mesh.aveE2CCV.T*np.r_[epsilon*self.sy0, epsilon*self.sx0])
+        Mesepsisig = sdiag(self.mesh.aveE2CCV.T*np.r_[1./epsilon*sig0*self.sigy*self.sy0, 1./epsilon*sig0*self.sigx*self.sx0])
+        Messig = sdiag(self.mesh.aveE2CCV.T*np.r_[(sig0+self.sigy)*self.sy0, (sig0+self.sigx)*self.sx0])
+        Meseps = sdiag(self.mesh.aveE2CCV.T*np.r_[epsilon*self.sy0, epsilon*self.sx0])
         MesepsI = sdInv(Meseps)
-        Icc = sp.hstack((speye(mesh.nC), speye(mesh.nC)))
-        curl = mesh.edgeCurl
-        curlvec = sp.block_diag((curl[:,:mesh.nEx], curl[:,mesh.nEx:]))
+        Icc = sp.hstack((speye(self.mesh.nC), speye(self.mesh.nC)))
+        curl = self.mesh.edgeCurl
+        curlvec = sp.block_diag((curl[:,:self.mesh.nEx], curl[:,self.mesh.nEx:]))
 
         if self.stability==False:
             raise Exception("Stability condition is not satisfied!!")
@@ -207,29 +207,29 @@ class GPR2DTEzProblemPML(Problem.BaseProblem):
             ntx = len(self.survey.txList)
             for itx, tx in enumerate(self.survey.txList):
                 print ("  Tx at (%7.2f, %7.2f): %4i/%4i")%(tx.loc[0], tx.loc[0], itx+1, ntx)
-                hd0 = np.zeros(2*mesh.nC)
-                hd1 = np.zeros(2*mesh.nC)
-                hId0 = np.zeros(2*mesh.nC)
-                hId1 = np.zeros(2*mesh.nC)
-                e0 = np.zeros(mesh.nE)
-                e1 = np.zeros(mesh.nE)
-                eI0 = np.zeros(mesh.nE)
-                eI1 = np.zeros(mesh.nE)
+                hd0 = np.zeros(2*self.mesh.nC)
+                hd1 = np.zeros(2*self.mesh.nC)
+                hId0 = np.zeros(2*self.mesh.nC)
+                hId1 = np.zeros(2*self.mesh.nC)
+                e0 = np.zeros(self.mesh.nE)
+                e1 = np.zeros(self.mesh.nE)
+                eI0 = np.zeros(self.mesh.nE)
+                eI1 = np.zeros(self.mesh.nE)
                 time = tx.time
                 dt = tx.dt
                 jm, je = tx.getq(self.mesh)
-                h = np.zeros((mesh.nC, time.size))
-                e = np.zeros((mesh.nE, time.size))
+                h = np.zeros((self.mesh.nC, time.size))
+                e = np.zeros((self.mesh.nE, time.size))
 
                 for i in range(time.size-1):
                     eI0 = eI1.copy()
                     eI1 = eI0 + dt*e0
-                    e1 = e0 + MesepsI*dt*(curl.T*(Icc*hd1)-Messig*e0-Mesepsisig*eI1-je*wave[i])
+                    e1 = e0 + MesepsI*dt*(curl.T*(Icc*hd1)-Messig*e0-Mesepsisig*eI1-je*tx.wave[i])
                     e0 = e1.copy()
                     e[:,i] = e1
                     hId0 = hId1.copy()
                     hId1 = hId0 + dt*hd0
-                    hd1 = hd0 - SmuI*dt*(curlvec*e0+Ssig*hd0+Smuisig*hId1+jm*wave[i]*0.5)
+                    hd1 = hd0 - SmuI*dt*(curlvec*e0+Ssig*hd0+Smuisig*hId1+jm*tx.wave[i]*0.5)
                     hd0 = hd1.copy()
                     h[:,i] = Icc*hd1
 
@@ -263,12 +263,12 @@ class GPR2DTEzProblemPML(Problem.BaseProblem):
                 for i in range(time.size-1):
                     eI0 = eI1.copy()
                     eI1 = eI0 + dt*e0
-                    e1 = e0 + MesepsI*dt*(curl.T*(Icc*hd1)-Messig*e0-Mesepsisig*eI1-je*wave[i])
+                    e1 = e0 + MesepsI*dt*(curl.T*(Icc*hd1)-Messig*e0-Mesepsisig*eI1-je*tx.wave[i])
                     e0 = e1.copy()
                     e[:,i] = e1
                     hId0 = hId1.copy()
                     hId1 = hId0 + dt*hd0
-                    hd1 = hd0 - SmuI*dt*(curlvec*e0+Ssig*hd0+Smuisig*hId1+jm*wave[i])
+                    hd1 = hd0 - SmuI*dt*(curlvec*e0+Ssig*hd0+Smuisig*hId1+jm*tx.wave[i])
                     hd0 = hd1.copy()
                     h[:,i] = Icc*hd1
 

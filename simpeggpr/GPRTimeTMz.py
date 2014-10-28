@@ -179,13 +179,13 @@ class GPR2DTMzProblemPML(Problem.BaseProblem):
         SepsI = sp.block_diag([sdiag(1./(epsilon*self.sy0)), sdiag(1./(epsilon*self.sx0))])
         Sepsisig = sp.block_diag([sdiag(sig0*self.sigy*(1./epsilon)*self.sy0), sdiag(sig0*self.sigx*(1./epsilon)*self.sx0)])
         Ssig = sp.block_diag([sdiag((self.sigy+sig0)*self.sy0), sdiag((self.sigx+sig0)*self.sx0)])
-        Mesmuisigs = sdiag(mesh.aveE2CCV.T*np.r_[self.sigs*self.sigy/epsilon*self.sy0, self.sigs*self.sigx/epsilon*self.sx0])
-        Messigs = sdiag(mesh.aveE2CCV.T*np.r_[(self.sigs+self.sigy*mu/epsilon)*self.sy0, (self.sigs+self.sigx*mu/epsilon)*self.sx0])
-        Mesmu = sdiag(mesh.aveE2CCV.T*np.r_[mu*self.sy0, mu*self.sx0])
+        Mesmuisigs = sdiag(self.mesh.aveE2CCV.T*np.r_[self.sigs*self.sigy/epsilon*self.sy0, self.sigs*self.sigx/epsilon*self.sx0])
+        Messigs = sdiag(self.mesh.aveE2CCV.T*np.r_[(self.sigs+self.sigy*mu/epsilon)*self.sy0, (self.sigs+self.sigx*mu/epsilon)*self.sx0])
+        Mesmu = sdiag(self.mesh.aveE2CCV.T*np.r_[mu*self.sy0, mu*self.sx0])
         MesmuI = sdInv(Mesmu)
-        Icc = sp.hstack((speye(mesh.nC), speye(mesh.nC)))
-        curl = mesh.edgeCurl
-        curlvec = sp.block_diag((curl[:,:mesh.nEx], curl[:,mesh.nEx:]))
+        Icc = sp.hstack((speye(self.mesh.nC), speye(self.mesh.nC)))
+        curl = self.mesh.edgeCurl
+        curlvec = sp.block_diag((curl[:,:self.mesh.nEx], curl[:,self.mesh.nEx:]))
 
         if self.stability==False:
             raise Exception("Stability condition is not satisfied!!")
@@ -207,34 +207,34 @@ class GPR2DTMzProblemPML(Problem.BaseProblem):
             ntx = len(self.survey.txList)
             for itx, tx in enumerate(self.survey.txList):
                 print ("  Tx at (%7.2f, %7.2f): %4i/%4i")%(tx.loc[0], tx.loc[0], itx+1, ntx)
-                h0 = np.zeros(mesh.nE)
-                h1 = np.zeros(mesh.nE)
-                hI0 = np.zeros(mesh.nE)
-                hI1 = np.zeros(mesh.nE)
+                h0 = np.zeros(self.mesh.nE)
+                h1 = np.zeros(self.mesh.nE)
+                hI0 = np.zeros(self.mesh.nE)
+                hI1 = np.zeros(self.mesh.nE)
 
-                ed0 = np.zeros(2*mesh.nC)
-                ed1 = np.zeros(2*mesh.nC)
-                eId0 = np.zeros(2*mesh.nC)
-                eId1 = np.zeros(2*mesh.nC)
+                ed0 = np.zeros(2*self.mesh.nC)
+                ed1 = np.zeros(2*self.mesh.nC)
+                eId0 = np.zeros(2*self.mesh.nC)
+                eId1 = np.zeros(2*self.mesh.nC)
 
                 time = tx.time
                 dt = tx.dt
                 je, jm = tx.getq(self.mesh)
-                h = np.zeros((mesh.nE, time.size))
-                e = np.zeros((mesh.nC, time.size))
+                h = np.zeros((self.mesh.nE, time.size))
+                e = np.zeros((self.mesh.nC, time.size))
 
                 for i in range(time.size-1):
 
                     eId0 = eId1.copy()
                     eId1 = eId0 + dt*ed0
 
-                    ed1 = ed0 + SepsI*dt*(curlvec*(h1) - Ssig*ed0 - Sepsisig*eId1-je*wave[i])
+                    ed1 = ed0 + SepsI*dt*(curlvec*(h1) - Ssig*ed0 - Sepsisig*eId1-je*tx.wave[i])
                     ed0 = ed1.copy()
                     e[:,i] = Icc*ed1
 
                     hI0 = hI1.copy()
                     hI1 = hI0 + dt*h0
-                    h1 = h0 - MesmuI*dt*(curl.T*(Icc*ed0)+Messigs*h0+Mesmuisigs*hI1+jm*wave[i])
+                    h1 = h0 - MesmuI*dt*(curl.T*(Icc*ed0)+Messigs*h0+Mesmuisigs*hI1+jm*tx.wave[i])
                     h0 = h1.copy()
                     h[:,i] = h1
 
