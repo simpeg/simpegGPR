@@ -5,16 +5,16 @@ from time import clock
 from scipy.constants import mu_0, epsilon_0
 from GPRTimeSurvey import SurveyGPRTime
 
-class GPRTMzTx(Survey.BaseTx):
+class GPRTMzSrc(Survey.BaseSrc):
 
 
-    def __init__(self, loc, time, rxList, txType='Mz', **kwargs):
+    def __init__(self, loc, time, rxList, srcType='Mz', **kwargs):
 
         self.dt = time[1]-time[0]
         self.time = time
         self.loc = loc
         self.rxList = rxList
-        self.txType = txType
+        self.srcType = srcType
         self.kwargs = kwargs
 
 
@@ -48,24 +48,24 @@ class GPRTMzTx(Survey.BaseTx):
 
     def getq(self, mesh):
 
-        if self.txType=='Jz':
+        if self.srcType=='Jz':
 
-            txind = Utils.closestPoints(mesh, self.loc, gridLoc='CC')
+            srcind = Utils.closestPoints(mesh, self.loc, gridLoc='CC')
             je = np.zeros(mesh.nC)
-            je[txind] = 1./mesh.vol[txind]
+            je[srcind] = 1./mesh.vol[srcind]
             return np.r_[je, je]*0.5, np.zeros(mesh.nE)
 
-        elif self.txType=='Mx':
-            txind = Utils.closestPoints(mesh, self.loc, gridLoc='Ex')
+        elif self.srcType=='Mx':
+            srcind = Utils.closestPoints(mesh, self.loc, gridLoc='Ex')
             jm = np.zeros(mesh.nE)
-            jm[txind] = 1./mesh.edge[txind]
+            jm[srcind] = 1./mesh.edge[srcind]
 
             return np.zeros(2*mesh.nC), jm
 
-        elif self.txType=='My':
-            txind = Utils.closestPoints(mesh, self.loc, gridLoc='Ey')
+        elif self.srcType=='My':
+            srcind = Utils.closestPoints(mesh, self.loc, gridLoc='Ey')
             jm = np.zeros(mesh.nE)
-            jm[txind] = 1./mesh.edge[txind]
+            jm[srcind] = 1./mesh.edge[srcind]
             return np.zeros(2*mesh.nC), jm
 
         else:
@@ -204,9 +204,9 @@ class GPR2DTMzProblemPML(Problem.BaseProblem):
         if self.storefield==True:
             self._Fields ={}
             #TODO: parallize in terms of sources
-            ntx = len(self.survey.txList)
-            for itx, tx in enumerate(self.survey.txList):
-                print ("  Tx at (%7.2f, %7.2f): %4i/%4i")%(tx.loc[0], tx.loc[0], itx+1, ntx)
+            nsrc = len(self.survey.srcList)
+            for isrc, src in enumerate(self.survey.srcList):
+                print ("  Src at (%7.2f, %7.2f): %4i/%4i")%(src.loc[0], src.loc[0], isrc+1, nsrc)
                 h0 = np.zeros(self.mesh.nE)
                 h1 = np.zeros(self.mesh.nE)
                 hI0 = np.zeros(self.mesh.nE)
@@ -217,9 +217,9 @@ class GPR2DTMzProblemPML(Problem.BaseProblem):
                 eId0 = np.zeros(2*self.mesh.nC)
                 eId1 = np.zeros(2*self.mesh.nC)
 
-                time = tx.time
-                dt = tx.dt
-                je, jm = tx.getq(self.mesh)
+                time = src.time
+                dt = src.dt
+                je, jm = src.getq(self.mesh)
                 h = np.zeros((self.mesh.nE, time.size))
                 e = np.zeros((self.mesh.nC, time.size))
 
@@ -228,18 +228,18 @@ class GPR2DTMzProblemPML(Problem.BaseProblem):
                     eId0 = eId1.copy()
                     eId1 = eId0 + dt*ed0
 
-                    ed1 = ed0 + SepsI*dt*(curlvec*(h1) - Ssig*ed0 - Sepsisig*eId1-je*tx.wave[i])
+                    ed1 = ed0 + SepsI*dt*(curlvec*(h1) - Ssig*ed0 - Sepsisig*eId1-je*src.wave[i])
                     ed0 = ed1.copy()
                     e[:,i] = Icc*ed1
 
                     hI0 = hI1.copy()
                     hI1 = hI0 + dt*h0
-                    h1 = h0 - MesmuI*dt*(curl.T*(Icc*ed0)+Messigs*h0+Mesmuisigs*hI1+jm*tx.wave[i])
+                    h1 = h0 - MesmuI*dt*(curl.T*(Icc*ed0)+Messigs*h0+Mesmuisigs*hI1+jm*src.wave[i])
                     h0 = h1.copy()
                     h[:,i] = h1
 
-                self._Fields['E', tx]= e
-                self._Fields['H', tx]= h
+                self._Fields['E', src]= e
+                self._Fields['H', src]= h
 
             elapsed = clock()-start
             print (">>Elapsed time: %5.2e s")%(elapsed)
@@ -249,9 +249,9 @@ class GPR2DTMzProblemPML(Problem.BaseProblem):
 
         elif self.storefield==False:
             Data = {}
-            ntx = len(self.survey.txList)
-            for itx, tx in enumerate(self.survey.txList):
-                print ("  Tx at (%7.2f, %7.2f): %4i/%4i")%(tx.loc[0], tx.loc[0], itx+1, ntx)
+            nsrc = len(self.survey.srcList)
+            for isrc, src in enumerate(self.survey.srcList):
+                print ("  Src at (%7.2f, %7.2f): %4i/%4i")%(src.loc[0], src.loc[0], isrc+1, nsrc)
                 h0 = np.zeros(mesh.nE)
                 h1 = np.zeros(mesh.nE)
                 hI0 = np.zeros(mesh.nE)
@@ -262,9 +262,9 @@ class GPR2DTMzProblemPML(Problem.BaseProblem):
                 eId0 = np.zeros(2*mesh.nC)
                 eId1 = np.zeros(2*mesh.nC)
 
-                time = tx.time
-                dt = tx.dt
-                je, jm = tx.getq(self.mesh)
+                time = src.time
+                dt = src.dt
+                je, jm = src.getq(self.mesh)
                 h = np.zeros((mesh.nE, time.size))
                 e = np.zeros((mesh.nC, time.size))
 
@@ -282,14 +282,14 @@ class GPR2DTMzProblemPML(Problem.BaseProblem):
                     h0 = h1.copy()
                     h[:,i] = h1
 
-                for rx in tx.rxList:
+                for rx in src.rxList:
                     Proj = rx.getP(self.mesh)
                     if rx.rxtype.find('E') >= 0:
                         flag = 'E'
-                        Data[tx, rx] = (Proj*e)
+                        Data[src, rx] = (Proj*e)
                     elif rx.rxtype.find('H') >= 0:
                         flag = 'H'
-                        Data[tx, rx] = (Proj*h)
+                        Data[src, rx] = (Proj*h)
 
             elapsed = clock()-start
             print (">>Elapsed time: %5.2e s")%(elapsed)
@@ -304,9 +304,9 @@ if __name__ == '__main__':
     time = np.arange(650)*dt
     options={'tlag':50*dt, 'fmain':fmain}
     rx = GPRTMzRx(np.r_[0, 0.], 'Hx')
-    tx = GPRTMzTx(np.r_[0, 0.], time, [rx], txType='Jz', **options)
-    survey = SurveyGPRTime([tx])
-    wave = tx.RickerWavelet()
+    src = GPRTMzSrc(np.r_[0, 0.], time, [rx], srcType='Jz', **options)
+    survey = SurveyGPRTime([src])
+    wave = src.RickerWavelet()
     cs =  1.0*1e-2
     hx = np.ones(200)*cs
     hy = np.ones(200)*cs
@@ -325,17 +325,17 @@ if __name__ == '__main__':
     if storefield == False:
         prob.storefield = False
         Data = prob.fields(epsilon, mu, sig0)
-        plt.plot(time, Utils.mkvc(Data[tx,rx]))
+        plt.plot(time, Utils.mkvc(Data[src,rx]))
 
     elif storefield == True:
         Fields = prob.fields(epsilon, mu, sig0)
         icount = 600
         extent = [mesh.vectorCCx.min(), mesh.vectorCCx.max(), mesh.vectorCCy.min(), mesh.vectorCCy.max()]
 
-        plt.imshow(np.flipud(Fields['E', tx][:,icount].reshape((mesh.nCx, mesh.nCy), order = 'F').T), cmap = 'RdBu', extent=extent)
+        plt.imshow(np.flipud(Fields['E', src][:,icount].reshape((mesh.nCx, mesh.nCy), order = 'F').T), cmap = 'RdBu', extent=extent)
         plt.show()
 
         data = survey.projectFields(Fields)
-        plt.plot(time, Utils.mkvc(data[tx, rx]))
+        plt.plot(time, Utils.mkvc(data[src, rx]))
 
     plt.show()
