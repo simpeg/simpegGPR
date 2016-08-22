@@ -10,6 +10,8 @@ class GPRTMzSrc(Survey.BaseSrc):
 
     def __init__(self, loc, time, rxList, srcType='Mz', **kwargs):
 
+        Survey.BaseSrc.__init__(self, rxList, **kwargs)
+
         self.dt = time[1]-time[0]
         self.time = time
         self.loc = loc

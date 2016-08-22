@@ -7,15 +7,19 @@ from GPRTimeSurvey import SurveyGPRTime
 
 class GPRTEzSrc(Survey.BaseSrc):
 
+    tlag  =  None
+    fmain = None
 
     def __init__(self, loc, time, rxList, srcType='Mz', **kwargs):
+
+        Survey.BaseSrc.__init__(self, rxList, **kwargs)
 
         self.dt = time[1]-time[0]
         self.time = time
         self.loc = loc
         self.rxList = rxList
         self.srcType = srcType
-        self.kwargs = kwargs
+        # self.kwargs = kwargs
 
 
     def RickerWavelet(self):
@@ -26,8 +30,8 @@ class GPRTEzSrc(Survey.BaseSrc):
             .. math ::
 
         """
-        tlag = self.kwargs['tlag']
-        fmain = self.kwargs['fmain']
+        tlag = self.tlag
+        fmain = self.fmain
         t = self.time
         self.wave = np.exp(-2*fmain**2*(t-tlag)**2)*np.cos(np.pi*fmain*(t-tlag))
         return self.wave
@@ -40,8 +44,8 @@ class GPRTEzSrc(Survey.BaseSrc):
             .. math ::
 
         """
-        tlag = self.kwargs['tlag']
-        fmain = self.kwargs['fmain']
+        tlag = self.tlag
+        fmain = self.fmain
         t = self.time[tInd]
         self.wave = np.exp(-2*fmain**2*(t-tlag)**2)*np.cos(np.pi*fmain*(t-tlag))
         return self.wave
